@@ -1,9 +1,11 @@
-'use client';
+"use client";
 
 import AuthGuard from "@/app/components/AuthGuard";
 import ProtectedHeader from "@/app/components/ProtectedHeader";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { saveCandidateProfile, getCandidateProfile } from "@/lib/profile";
+import { getAuth } from "@/lib/auth";
 
 export default function CandidateForm() {
   const [form, setForm] = useState({
@@ -27,12 +29,42 @@ export default function CandidateForm() {
   });
   const [submitted, setSubmitted] = useState(false);
 
+  useEffect(() => {
+    const auth = getAuth();
+    const savedProfile = getCandidateProfile(auth?.username);
+    if (savedProfile) {
+      setForm((current) => ({ ...current, ...savedProfile }));
+    }
+  }, []);
+
   const handleChange = (key: string, value: string | File | null) => {
     setForm((current) => ({ ...current, [key]: value }));
   };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const profileData = {
+      fullName: form.fullName,
+      email: form.email,
+      phone: form.phone,
+      address: form.address,
+      dob: form.dob,
+      highestQualification: form.highestQualification,
+      institute: form.institute,
+      passingYear: form.passingYear,
+      percentage: form.percentage,
+      totalExperience: form.totalExperience,
+      currentCompany: form.currentCompany,
+      currentDesignation: form.currentDesignation,
+      skills: form.skills,
+      expectedSalary: form.expectedSalary,
+      noticePeriod: form.noticePeriod,
+      additionalNotes: form.additionalNotes,
+      resumeName: form.resumeFile?.name || "",
+    };
+
+    const auth = getAuth();
+    saveCandidateProfile(profileData, auth?.username);
     setSubmitted(true);
   };
 

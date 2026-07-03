@@ -54,6 +54,21 @@ export default function AdminPanel() {
     }
   };
 
+  const handleApprove = async (id: string) => {
+    try {
+      const response = await fetch(`/api/users/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'approve' }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || 'Unable to approve');
+      loadUsers();
+    } catch (e: any) {
+      setMessage(e?.message || 'Approve failed');
+    }
+  };
+
   return (
     <AuthGuard requiredRole="admin">
       <main className="app-shell">
@@ -90,6 +105,12 @@ export default function AdminPanel() {
                   <strong>{user.name}</strong>
                   <p>{user.email}</p>
                   <p>Role: {user.role}</p>
+                  <p>Status: {user.status || 'active'}</p>
+                  {user.status === 'pending' && (
+                    <div style={{ marginTop: 8 }}>
+                      <button className="primary-button" onClick={() => handleApprove(user._id)}>Approve</button>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

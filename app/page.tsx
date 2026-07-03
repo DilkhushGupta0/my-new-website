@@ -313,6 +313,11 @@ export default function Home() {
         .search-column, .login-column { }
         .search-column h1 { font-size: clamp(1.8rem, 2.5vw, 2.8rem); margin: 12px 0 24px; line-height: 1.1; }
         .login-column h2 { font-size: clamp(1.6rem, 2vw, 2.2rem); margin: 12px 0 16px; line-height: 1.1; }
+        .company-hero { padding: 48px 28px; }
+        .about-frame { width: min(100%, 980px); }
+        .search-card-inline { padding: 20px; }
+        .about-block { padding: 24px; }
+        .social-card { padding: 24px; }
         .eyebrow { color: #2563eb; font-size: 12px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; margin-bottom: 8px; }
         .column-copy { color: #475569; line-height: 1.7; margin-bottom: 24px; }
         .search-card-inline { background: #f8fafc; border-radius: 24px; padding: 24px; }
@@ -365,7 +370,32 @@ export default function Home() {
         .modal-content h2 { margin: 12px 0 16px; font-size: 1.8rem; }
         .modal-text { color: #475569; line-height: 1.7; margin-bottom: 28px; }
         .modal-actions { display: flex; gap: 12px; flex-wrap: wrap; }
-        @media (max-width: 1000px) { .home-grid { grid-template-columns: 1fr; } .footer-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1000px) {
+          .home-grid { grid-template-columns: 1fr; }
+          .about-frame { width: 100%; padding: 24px; }
+          .company-hero { padding: 36px 20px; }
+          .home-section { padding: 28px; }
+          .job-card { padding: 16px; }
+          .search-card-inline { padding: 18px; }
+          .form-field { margin-bottom: 16px; }
+          .login-card { min-height: auto; }
+          .login-arrow { top: 16px; right: 16px; }
+          .about-block { padding: 22px; }
+          .social-card { padding: 22px; }
+        }
+        @media (max-width: 640px) {
+          .page-inner { padding: 22px 16px 30px; }
+          .company-hero { border-radius: 24px; }
+          .home-section { border-radius: 24px; padding: 22px; }
+          .about-frame { padding: 20px; }
+          .about-block { padding: 18px; }
+          .social-card { padding: 20px; }
+          .primary-button, .secondary-button { width: 100%; text-align: center; padding: 14px 16px; }
+          .login-cards { gap: 14px; }
+          .job-grid { grid-template-columns: 1fr; }
+          .form-field input, .form-field select { padding: 12px 14px; }
+          .job-card-heading { flex-direction: column; align-items: stretch; }
+        }
       `}</style>
     </>
   );

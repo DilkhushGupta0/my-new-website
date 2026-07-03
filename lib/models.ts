@@ -8,6 +8,13 @@ export interface IUser extends Document {
   resume?: string;
   phone?: string;
   createdAt: Date;
+  status?: 'active' | 'pending' | 'disabled';
+  verifiedEmail?: boolean;
+  verifiedPhone?: boolean;
+  phoneOTP?: string;
+  phoneOTPExpires?: Date;
+  resetToken?: string;
+  resetExpires?: Date;
 }
 
 const userSchema = new Schema<IUser>(
@@ -21,6 +28,17 @@ const userSchema = new Schema<IUser>(
   },
   { timestamps: true }
 );
+
+// Extended fields for account management
+userSchema.add({
+  status: { type: String, enum: ['active', 'pending', 'disabled'], default: 'active' },
+  verifiedEmail: { type: Boolean, default: false },
+  verifiedPhone: { type: Boolean, default: false },
+  phoneOTP: String,
+  phoneOTPExpires: Date,
+  resetToken: String,
+  resetExpires: Date,
+});
 
 export const User = mongoose.models.User || mongoose.model('User', userSchema);
 

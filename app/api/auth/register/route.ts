@@ -2,11 +2,13 @@ import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
 
-const localUsers = [
+const defaultUsers = [
   { name: 'candidate', email: 'candidate@example.com', password: 'candidate123', role: 'candidate' },
   { name: 'hr', email: 'hr@example.com', password: 'hr123', role: 'hr' },
   { name: 'admin', email: 'admin@example.com', password: 'admin123', role: 'admin' },
 ];
+
+const localUsers = [...defaultUsers];
 
 function normalizeValue(value: unknown) {
   return String(value || '').trim().toLowerCase();
@@ -24,6 +26,19 @@ function registerLocalUser(email: string, name: string, password: string, role: 
   const newUser = { name, email, password, role };
   localUsers.push(newUser);
   return { name: newUser.name, email: newUser.email, role: newUser.role };
+}
+
+async function seedDefaultUsers() {
+  try {
+    for (const defaultUser of defaultUsers) {
+      const exists = await User.findOne({ $or: [{ email: defaultUser.email }, { name: defaultUser.name }] });
+      if (!exists) {
+        await User.create(defaultUser);
+      }
+    }
+  } catch {
+    // ignore seeding errors
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -44,17 +59,42 @@ export async function POST(request: NextRequest) {
     if (!useLocalAuth) {
       try {
         await connectDB();
-      } catch {
-        useLocalAuth = true;
-      }
-    }
+        await seedDefaultUsers();
 
-    if (useLocalAuth) {
-      userData = registerLocalUser(email, name, password, role);
+        // Enforce admin limit
+        if (role === 'admin') {
+          const adminCount = await User.countDocuments({ role: 'admin' });
+          if (adminCount >= 2) {
+            return NextResponse.json({ success: false, error: 'Maximum number of admin accounts reached.' }, { status: 400 });
+          }
+        }
+
+        // HR accounts require admin approval
+        const status = role === 'hr' ? 'pending' : 'active';
+        const user = await User.create({ email, name, password, role, status });
+        userData = user.toObject();
+        delete userData.password;
+      } catch (error: any) {
+        const message = error?.message?.includes('duplicate key') ? 'User already exists.' : error?.message || 'Unable to register user.';
+        return NextResponse.json({ success: false, error: message }, { status: 400 });
+      }
     } else {
-      const user = await User.create({ email, name, password, role });
-      userData = user.toObject();
-      delete userData.password;
+      // local fallback: enforce admin limit and HR pending
+      const normalizedEmail = email.toLowerCase();
+      const exists = localUsers.some((u) => u.email.toLowerCase() === normalizedEmail || u.name.toLowerCase() === name.toLowerCase());
+      if (exists) {
+        return NextResponse.json({ success: false, error: 'User already exists.' }, { status: 400 });
+      }
+      if (role === 'admin') {
+        const adminCount = localUsers.filter((u) => u.role === 'admin').length;
+        if (adminCount >= 2) {
+          return NextResponse.json({ success: false, error: 'Maximum number of admin accounts reached.' }, { status: 400 });
+        }
+      }
+      const status = role === 'hr' ? 'pending' : 'active';
+      const newUser = { name, email, password, role, status };
+      localUsers.push(newUser as any);
+      userData = { name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status };
     }
 
     return NextResponse.json({ success: true, data: userData }, { status: 201 });

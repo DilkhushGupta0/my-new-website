@@ -1,12 +1,22 @@
 'use client';
 
+import { useEffect, useState } from "react";
 import AuthGuard from "@/app/components/AuthGuard";
 import ProtectedHeader from "@/app/components/ProtectedHeader";
 import Link from "next/link";
+import { getCandidateProfile, type CandidateProfile } from "@/lib/profile";
+import { getAuth } from "@/lib/auth";
 
 export default function CandidateProfile() {
+  const [profile, setProfile] = useState<CandidateProfile | null>(null);
+
+  useEffect(() => {
+    const auth = getAuth();
+    setProfile(getCandidateProfile(auth?.username));
+  }, []);
+
   return (
-    <AuthGuard>
+    <AuthGuard requiredRole="candidate">
       <main className="app-shell">
         <div className="page-inner">
           <ProtectedHeader />
@@ -20,23 +30,48 @@ export default function CandidateProfile() {
           <div className="profile-grid">
             <article className="preview-block">
               <strong>Profile summary</strong>
-              <p>Name: Aisha Sharma</p>
-              <p>Email: aisha.sharma@example.com</p>
-              <p>Role: Job Seeker</p>
+              {profile ? (
+                <>
+                  <p>Name: {profile.fullName || "Not provided"}</p>
+                  <p>Email: {profile.email || "Not provided"}</p>
+                  <p>Role: Job Seeker</p>
+                </>
+              ) : (
+                <p>No profile data found yet. Please complete your candidate profile.</p>
+              )}
             </article>
             <article className="preview-block">
               <strong>Resume upload</strong>
-              <p>Resume: latest_cv.pdf</p>
-              <p>Status: Uploaded and ready to apply</p>
+              {profile ? (
+                <>
+                  <p>Resume: {profile.resumeName || "No resume uploaded"}</p>
+                  <p>Status: {profile.resumeName ? "Uploaded and ready to apply" : "Pending upload"}</p>
+                </>
+              ) : (
+                <p>Upload your resume in the candidate profile page.</p>
+              )}
             </article>
             <article className="preview-block">
-              <strong>Application tracking</strong>
-              <p>Senior Product Designer — Pending review</p>
-              <p>HR Business Partner — Interview scheduled</p>
+              <strong>Academic & experience</strong>
+              {profile ? (
+                <>
+                  <p>{profile.highestQualification || "Qualification not added"} from {profile.institute || "Institute not added"}</p>
+                  <p>{profile.totalExperience || "Experience not added"} experience, current role: {profile.currentDesignation || "Not added"}</p>
+                </>
+              ) : (
+                <p>Fill in your education and experience details.</p>
+              )}
             </article>
             <article className="preview-block">
-              <strong>Premium fast-track</strong>
-              <p>Upgrade your profile for priority resume review and faster replies.</p>
+              <strong>Additional notes</strong>
+              {profile ? (
+                <>
+                  <p>{profile.skills ? `Skills: ${profile.skills}` : "Skills not provided"}</p>
+                  <p>{profile.additionalNotes || "No additional notes."}</p>
+                </>
+              ) : (
+                <p>Add your profile details for better job matches.</p>
+              )}
             </article>
           </div>
 

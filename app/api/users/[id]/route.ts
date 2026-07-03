@@ -38,3 +38,19 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    await connectDB();
+    const { id } = await params;
+    const body = await request.json();
+    const action = String(body.action || '').trim();
+    if (action === 'approve') {
+      const user = await User.findByIdAndUpdate(id, { status: 'active' }, { new: true, select: '-password' });
+      return NextResponse.json({ success: true, data: user });
+    }
+    return NextResponse.json({ success: false, error: 'Unknown action' }, { status: 400 });
+  } catch (error: any) {
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

@@ -25,6 +25,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -41,6 +42,13 @@ export default function RegisterPage() {
       const data = await response.json();
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Registration failed.");
+      }
+
+      // If HR registration, it will be pending admin approval
+      if (data.data && data.data.status === 'pending') {
+        setMessage('Your HR account has been created and is pending admin approval. You will be notified when approved.');
+        setLoading(false);
+        return;
       }
 
       const session = {
@@ -120,6 +128,8 @@ export default function RegisterPage() {
             </button>
             {error && <p className="error-message">{error}</p>}
           </form>
+
+          {message && <p className="status-message">{message}</p>}
 
           <div className="example-credentials">
             <p>

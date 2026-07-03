@@ -55,12 +55,27 @@ export async function POST(request: NextRequest) {
       if (exists) {
         return NextResponse.json({ success: false, error: 'User already exists.' }, { status: 400 });
       }
-      const newUser = { _id: `user-${Date.now()}`, ...body };
+      if (body.role === 'admin') {
+        const adminCount = localUsers.filter((u) => u.role === 'admin').length;
+        if (adminCount >= 2) {
+          return NextResponse.json({ success: false, error: 'Maximum number of admin accounts reached.' }, { status: 400 });
+        }
+      }
+      const status = body.role === 'hr' ? 'pending' : 'active';
+      const newUser = { _id: `user-${Date.now()}`, ...body, status };
       localUsers.push(newUser);
       return NextResponse.json({ success: true, data: serializeUser(newUser) }, { status: 201 });
     }
 
-    const user = await User.create(body);
+    // enforce admin limit and hr pending for DB
+    if (body.role === 'admin') {
+      const adminCount = await User.countDocuments({ role: 'admin' });
+      if (adminCount >= 2) {
+        return NextResponse.json({ success: false, error: 'Maximum number of admin accounts reached.' }, { status: 400 });
+      }
+    }
+    const status = body.role === 'hr' ? 'pending' : 'active';
+    const user = await User.create({ ...body, status });
     const userObject = user.toObject();
     delete userObject.password;
     return NextResponse.json({ success: true, data: userObject }, { status: 201 });
