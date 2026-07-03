@@ -1,6 +1,8 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 
 const defaultUsers = [
   { name: 'candidate', email: 'candidate@example.com', password: 'candidate123', role: 'candidate' },
@@ -78,12 +80,22 @@ export async function POST(request: NextRequest) {
 
         // Normalize stored role before comparing
         const storedRole = normalizeValue((user.role as unknown) as string);
-        if (user.password !== password || storedRole !== role) {
+        const match = await bcrypt.compare(password, user.password);
+        if (!match || storedRole !== role) {
           return NextResponse.json({ success: false, error: 'Invalid credentials or role.' }, { status: 401 });
         }
 
         userData = user.toObject();
         delete userData.password;
+        // issue JWT for authenticated sessions
+        try {
+          const token = jwt.sign({ id: user._id.toString(), role: user.role, email: user.email }, process.env.JWT_SECRET || 'devsecret', {
+            expiresIn: '7d',
+          });
+          userData.token = token;
+        } catch (e) {
+          // ignore token errors
+        }
       } catch {
         useLocalAuth = true;
       }

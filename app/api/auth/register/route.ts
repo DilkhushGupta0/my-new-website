@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
+import bcrypt from 'bcryptjs';
 
 const defaultUsers = [
   { name: 'candidate', email: 'candidate@example.com', password: 'candidate123', role: 'candidate' },
@@ -71,7 +72,8 @@ export async function POST(request: NextRequest) {
 
         // HR accounts require admin approval
         const status = role === 'hr' ? 'pending' : 'active';
-        const user = await User.create({ email, name, password, role, status });
+        const hashed = await bcrypt.hash(password, 10);
+        const user = await User.create({ email, name, password: hashed, role, status });
         userData = user.toObject();
         delete userData.password;
       } catch (error: any) {
@@ -92,8 +94,9 @@ export async function POST(request: NextRequest) {
         }
       }
       const status = role === 'hr' ? 'pending' : 'active';
-      const newUser = { name, email, password, role, status };
-      localUsers.push(newUser as any);
+      const hashed = await bcrypt.hash(password, 10);
+      const newUser = { name, email, password: hashed, role, status } as any;
+      localUsers.push(newUser);
       userData = { name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status };
     }
 

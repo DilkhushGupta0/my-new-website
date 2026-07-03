@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    user.password = newPassword;
+    // hash new password
+    const bcrypt = (await import('bcryptjs')).default;
+    user.password = await bcrypt.hash(newPassword, 10);
     user.resetToken = undefined as any;
     user.resetExpires = undefined as any;
     user.phoneOTP = undefined as any;
