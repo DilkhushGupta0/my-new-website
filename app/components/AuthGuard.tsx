@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAuth, AuthRole } from "@/lib/auth";
+import { getAuth, saveAuth, AuthRole } from "@/lib/auth";
 
 type AuthGuardProps = {
   children: React.ReactNode;
@@ -15,15 +15,40 @@ export default function AuthGuard({ children, requiredRole }: AuthGuardProps) {
 
   useEffect(() => {
     const auth = getAuth();
-    if (!auth) {
-      router.replace("/login");
+    if (auth) {
+      if (requiredRole && auth.role !== requiredRole) {
+        router.replace("/login");
+        return;
+      }
+      setAllowed(true);
       return;
     }
-    if (requiredRole && auth.role !== requiredRole) {
-      router.replace("/login");
-      return;
+
+    async function verifySession() {
+      try {
+        const response = await fetch('/api/auth/session');
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          router.replace('/login');
+          return;
+        }
+        const session = {
+          username: data.data.name || data.data.email,
+          role: data.data.role as AuthRole,
+          label: data.data.role === 'candidate' ? 'Job Seeker' : data.data.role === 'hr' ? 'HR' : 'Admin',
+        };
+        saveAuth(session);
+        if (requiredRole && session.role !== requiredRole) {
+          router.replace('/login');
+          return;
+        }
+        setAllowed(true);
+      } catch {
+        router.replace('/login');
+      }
     }
-    setAllowed(true);
+
+    verifySession();
   }, [requiredRole, router]);
 
   if (!allowed) {

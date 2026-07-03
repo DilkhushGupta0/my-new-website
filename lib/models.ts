@@ -11,6 +11,8 @@ export interface IUser extends Document {
   status?: 'active' | 'pending' | 'disabled';
   verifiedEmail?: boolean;
   verifiedPhone?: boolean;
+  registrationOTP?: string;
+  registrationOTPExpires?: Date;
   phoneOTP?: string;
   phoneOTPExpires?: Date;
   resetToken?: string;
@@ -34,6 +36,8 @@ userSchema.add({
   status: { type: String, enum: ['active', 'pending', 'disabled'], default: 'active' },
   verifiedEmail: { type: Boolean, default: false },
   verifiedPhone: { type: Boolean, default: false },
+  registrationOTP: String,
+  registrationOTPExpires: Date,
   phoneOTP: String,
   phoneOTPExpires: Date,
   resetToken: String,

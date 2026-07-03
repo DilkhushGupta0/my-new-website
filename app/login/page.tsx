@@ -35,15 +35,40 @@ export default function LoginPage() {
   }, []);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [otpContact, setOtpContact] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [otpStep, setOtpStep] = useState(0);
+  const [otpMessage, setOtpMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
     const session = getAuth();
     if (session) {
       router.replace(redirectForRole(session.role));
-    } else {
-      clearAuth();
+      return;
     }
+
+    async function verifySession() {
+      try {
+        const response = await fetch('/api/auth/session');
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+          clearAuth();
+          return;
+        }
+        const session = {
+          username: data.data.name || data.data.email,
+          role: data.data.role as AuthRole,
+          label: data.data.role === 'candidate' ? 'Job Seeker' : data.data.role === 'hr' ? 'HR' : 'Admin',
+        };
+        saveAuth(session);
+        router.replace(redirectForRole(session.role));
+      } catch {
+        clearAuth();
+      }
+    }
+
+    verifySession();
   }, [router]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -72,6 +97,58 @@ export default function LoginPage() {
       router.push(redirectForRole(session.role));
     } catch (error: any) {
       setError(error?.message || "Invalid login ID or password for the selected role.");
+      setLoading(false);
+    }
+  };
+
+  const sendOtp = async () => {
+    setOtpMessage('');
+    setError('');
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'request', email: otpContact, phone: otpContact, role }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'OTP request failed.');
+      }
+      setOtpStep(1);
+      setOtpMessage('OTP sent. Enter the code to login.');
+    } catch (error: any) {
+      setError(error?.message || 'Unable to send OTP.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyOtp = async () => {
+    setOtpMessage('');
+    setError('');
+    setLoading(true);
+    try {
+      const response = await fetch('/api/auth/otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', email: otpContact, phone: otpContact, role, otp: otpCode }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || 'OTP verification failed.');
+      }
+
+      const session = {
+        username: data.data.name || data.data.email,
+        role: data.data.role as AuthRole,
+        label: data.data.role === 'candidate' ? 'Job Seeker' : data.data.role === 'hr' ? 'HR' : 'Admin',
+      };
+      saveAuth(session);
+      router.push(redirectForRole(session.role));
+    } catch (error: any) {
+      setError(error?.message || 'Invalid OTP or login details.');
+    } finally {
       setLoading(false);
     }
   };
@@ -136,6 +213,54 @@ export default function LoginPage() {
             {error && <p className="error-message">{error}</p>}
           </form>
 
+          <section className="otp-login-card">
+            <h2>OTP login</h2>
+            <p>Use email or phone to request a one-time login code.</p>
+            <div className="form-field">
+              <label htmlFor="otpContact">Email or phone</label>
+              <input
+                id="otpContact"
+                type="text"
+                value={otpContact}
+                onChange={(event) => setOtpContact(event.target.value)}
+                placeholder="Enter your email or phone"
+              />
+            </div>
+            <div className="form-field">
+              <label htmlFor="otpRole">Role</label>
+              <select id="otpRole" value={role} onChange={(event) => setRole(event.target.value as AuthRole)}>
+                {roleOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {otpStep === 1 && (
+              <div className="form-field">
+                <label htmlFor="otpCode">OTP code</label>
+                <input
+                  id="otpCode"
+                  type="text"
+                  value={otpCode}
+                  onChange={(event) => setOtpCode(event.target.value)}
+                  placeholder="Enter the received OTP"
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 12, marginTop: 12, flexWrap: 'wrap' }}>
+              <button type="button" className="secondary-button" onClick={sendOtp} disabled={loading}>
+                Send OTP
+              </button>
+              {otpStep === 1 && (
+                <button type="button" className="primary-button" onClick={verifyOtp} disabled={loading}>
+                  Verify OTP
+                </button>
+              )}
+            </div>
+            {(otpMessage || error) && <p className={otpMessage ? 'status-message' : 'error-message'}>{otpMessage || error}</p>}
+          </section>
+
           <div className="example-credentials">
             <h2>Sample access IDs</h2>
             <ul>
@@ -164,6 +289,9 @@ export default function LoginPage() {
         .example-credentials h2 { margin: 0 0 12px; }
         .example-credentials ul { margin: 0; padding-left: 18px; color: #334155; }
         .example-credentials li { margin-bottom: 10px; }
+        .otp-login-card { margin-top: 24px; padding: 22px; border-radius: 22px; background: #f8fafc; border: 1px solid #cbd5e1; }
+        .otp-login-card h2 { margin: 0 0 10px; }
+        .status-message { color: #0f766e; margin-top: 12px; }
       `}</style>
     </main>
   );

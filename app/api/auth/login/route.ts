@@ -2,7 +2,7 @@ import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import { createSessionCookie } from '@/lib/serverAuth';
 
 const defaultUsers = [
   { name: 'candidate', email: 'candidate@example.com', password: 'candidate123', role: 'candidate' },
@@ -87,15 +87,6 @@ export async function POST(request: NextRequest) {
 
         userData = user.toObject();
         delete userData.password;
-        // issue JWT for authenticated sessions
-        try {
-          const token = jwt.sign({ id: user._id.toString(), role: user.role, email: user.email }, process.env.JWT_SECRET || 'devsecret', {
-            expiresIn: '7d',
-          });
-          userData.token = token;
-        } catch (e) {
-          // ignore token errors
-        }
       } catch {
         useLocalAuth = true;
       }
@@ -109,7 +100,13 @@ export async function POST(request: NextRequest) {
       userData = { name: localUser.name, email: localUser.email, role: localUser.role };
     }
 
-    return NextResponse.json({ success: true, data: userData });
+    const response = NextResponse.json({ success: true, data: userData });
+    try {
+      createSessionCookie(response, { id: userData.email || userData.name, role: userData.role, email: userData.email });
+    } catch {
+      // ignore cookie creation failures
+    }
+    return response;
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error?.message || 'Login failed.' }, { status: 500 });
   }

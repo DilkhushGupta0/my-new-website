@@ -12,7 +12,12 @@ export default function ProtectedHeader() {
     setSession(getAuth() ?? null);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // ignore logout errors
+    }
     clearAuth();
     router.push("/login");
   };

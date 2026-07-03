@@ -1,6 +1,7 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/serverAuth';
 
 const localUsers = [
   { _id: 'user-1', name: 'candidate', email: 'candidate@example.com', password: 'candidate123', role: 'candidate' },
@@ -14,8 +15,13 @@ function serializeUser(user: any) {
   return safeUser;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const auth = requireAdmin(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     let useLocalData = !process.env.MONGODB_URI;
 
     if (!useLocalData) {
@@ -39,6 +45,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = requireAdmin(request);
+    if (!auth) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     let useLocalData = !process.env.MONGODB_URI;
 
