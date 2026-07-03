@@ -1,46 +1,56 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { createSessionCookie } from '@/lib/serverAuth';
 
 async function sendEmail(to: string, subject: string, text: string) {
   const host = process.env.SMTP_HOST;
-  if (!host) {
-    console.log('[auth/otp] sendEmail (fallback):', { to, subject, text });
-    return;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) {
+    const error = new Error('SMTP is not configured. Set SMTP_HOST, SMTP_USER, SMTP_PASS, and SMTP_FROM.');
+    console.error('[auth/otp] sendEmail configuration error:', error.message);
+    throw error;
   }
+
   try {
     const req: any = eval('require');
     const nodemailer = req('nodemailer');
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host,
       port: Number(process.env.SMTP_PORT || 587),
       secure: Boolean(process.env.SMTP_SECURE === 'true'),
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
+      auth: { user, pass },
     });
-    await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
-  } catch (error) {
-    console.log('[auth/otp] sendEmail error:', error);
+    await transporter.sendMail({ from, to, subject, text });
+  } catch (error: any) {
+    console.error('[auth/otp] sendEmail error:', error?.message || error);
+    throw new Error('Failed to deliver OTP email.');
   }
 }
 
 async function sendSMS(phone: string, text: string) {
-  if (process.env.TWILIO_SID && process.env.TWILIO_TOKEN) {
-    try {
-      const req: any = eval('require');
-      const twilioLib = req('twilio');
-      const twilio = twilioLib(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
-      await twilio.messages.create({ body: text, from: process.env.TWILIO_FROM, to: phone });
-      return;
-    } catch (error) {
-      console.log('[auth/otp] sendSMS error:', error);
-    }
+  const sid = process.env.TWILIO_SID;
+  const token = process.env.TWILIO_TOKEN;
+  const from = process.env.TWILIO_FROM;
+
+  if (!sid || !token || !from) {
+    const error = new Error('Twilio is not configured. Set TWILIO_SID, TWILIO_TOKEN, and TWILIO_FROM.');
+    console.error('[auth/otp] sendSMS configuration error:', error.message);
+    throw error;
   }
-  console.log('[auth/otp] sendSMS (fallback):', { phone, text });
+
+  try {
+    const req: any = eval('require');
+    const twilioLib = req('twilio');
+    const twilio = twilioLib(sid, token);
+    await twilio.messages.create({ body: text, from, to: phone });
+  } catch (error: any) {
+    console.error('[auth/otp] sendSMS error:', error?.message || error);
+    throw new Error('Failed to deliver OTP SMS.');
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -80,11 +90,24 @@ export async function POST(request: NextRequest) {
       await user.save();
 
       const message = `Your Zenzi login code is ${code}. It expires in 5 minutes.`;
+      const deliveryPromises: Promise<void>[] = [];
+
       if (email && user.email) {
-        await sendEmail(user.email, 'Zenzi Consultancy login code', message);
+        deliveryPromises.push(sendEmail(user.email, 'Zenzi Consultancy login code', message));
       }
       if (phone && user.phone) {
-        await sendSMS(user.phone, message);
+        deliveryPromises.push(sendSMS(user.phone, message));
+      }
+
+      if (deliveryPromises.length === 0) {
+        return NextResponse.json({ success: false, error: 'Unable to send OTP. No valid delivery target found.' }, { status: 400 });
+      }
+
+      try {
+        await Promise.all(deliveryPromises);
+      } catch (error: any) {
+        console.error('[auth/otp] OTP delivery failure:', error?.message || error);
+        return NextResponse.json({ success: false, error: error?.message || 'Failed to deliver OTP.' }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, message: 'OTP sent to your email or phone.' });
