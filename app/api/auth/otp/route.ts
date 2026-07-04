@@ -1,6 +1,8 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 import { createSessionCookie } from '@/lib/serverAuth';
 
 async function sendEmail(to: string, subject: string, text: string) {
@@ -16,8 +18,6 @@ async function sendEmail(to: string, subject: string, text: string) {
   }
 
   try {
-    const req: any = eval('require');
-    const nodemailer = req('nodemailer');
     const transporter = nodemailer.createTransport({
       host,
       port: Number(process.env.SMTP_PORT || 587),
@@ -43,10 +43,8 @@ async function sendSMS(phone: string, text: string) {
   }
 
   try {
-    const req: any = eval('require');
-    const twilioLib = req('twilio');
-    const twilio = twilioLib(sid, token);
-    await twilio.messages.create({ body: text, from, to: phone });
+    const client = twilio(sid, token);
+    await client.messages.create({ body: text, from, to: phone });
   } catch (error: any) {
     console.error('[auth/otp] sendSMS error:', error?.message || error);
     throw new Error('Failed to deliver OTP SMS.');

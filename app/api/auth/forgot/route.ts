@@ -2,46 +2,53 @@ import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
 
 async function sendEmail(to: string, subject: string, text: string) {
-  // Best-effort: use env SMTP if available, otherwise console.log
   const host = process.env.SMTP_HOST;
-  if (!host) {
-    console.log('[auth/forgot] sendEmail (fallback):', { to, subject, text });
-    return;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) {
+    const error = new Error('SMTP is not configured.');
+    console.error('[auth/forgot] sendEmail configuration error:', error.message);
+    throw error;
   }
-    try {
-      // lazy-require nodemailer to avoid bundler static analysis
-      const req: any = eval('require');
-      const nodemailer = req('nodemailer');
-      const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST,
-        port: Number(process.env.SMTP_PORT || 587),
-        secure: Boolean(process.env.SMTP_SECURE === 'true'),
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-      });
-      await transporter.sendMail({ from: process.env.SMTP_FROM || process.env.SMTP_USER, to, subject, text });
-    } catch (e) {
-      console.log('[auth/forgot] sendEmail error:', e);
-    }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: Boolean(process.env.SMTP_SECURE === 'true'),
+      auth: { user, pass },
+    });
+    await transporter.sendMail({ from, to, subject, text });
+  } catch (error: any) {
+    console.error('[auth/forgot] sendEmail error:', error?.message || error);
+    throw new Error('Failed to deliver password reset email.');
+  }
 }
 
 async function sendSMS(phone: string, text: string) {
-  if (process.env.TWILIO_SID && process.env.TWILIO_TOKEN) {
-    try {
-      const req: any = eval('require');
-      const twilioLib = req('twilio');
-      const twilio = twilioLib(process.env.TWILIO_SID, process.env.TWILIO_TOKEN);
-      await twilio.messages.create({ body: text, from: process.env.TWILIO_FROM, to: phone });
-      return;
-    } catch (e) {
-      console.log('[auth/forgot] sendSMS error:', e);
-    }
+  const sid = process.env.TWILIO_SID;
+  const token = process.env.TWILIO_TOKEN;
+  const from = process.env.TWILIO_FROM;
+
+  if (!sid || !token || !from) {
+    const error = new Error('Twilio is not configured.');
+    console.error('[auth/forgot] sendSMS configuration error:', error.message);
+    throw error;
   }
-  console.log('[auth/forgot] sendSMS (fallback):', { phone, text });
+
+  try {
+    const client = twilio(sid, token);
+    await client.messages.create({ body: text, from, to: phone });
+  } catch (error: any) {
+    console.error('[auth/forgot] sendSMS error:', error?.message || error);
+    throw new Error('Failed to deliver password reset SMS.');
+  }
 }
 
 export async function POST(request: NextRequest) {
