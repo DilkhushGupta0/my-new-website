@@ -219,9 +219,12 @@ export default function Home() {
                     <span className="login-arrow">→</span>
                   </Link>
                 </div>
-                <div style={{ marginTop: 24 }}>
+                <div style={{ marginTop: 24, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
                   <Link href="/register" className="primary-button">
                     Create an account
+                  </Link>
+                  <Link href="/auth-health" className="secondary-button">
+                    System status
                   </Link>
                 </div>
               </div>
