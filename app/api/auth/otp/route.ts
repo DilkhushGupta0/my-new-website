@@ -2,7 +2,6 @@ import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models';
 import { NextRequest, NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
-import twilio from 'twilio';
 import { createSessionCookie } from '@/lib/serverAuth';
 
 async function sendEmail(to: string, subject: string, text: string) {
@@ -28,26 +27,6 @@ async function sendEmail(to: string, subject: string, text: string) {
   } catch (error: any) {
     console.error('[auth/otp] sendEmail error:', error?.message || error);
     throw new Error('Failed to deliver OTP email.');
-  }
-}
-
-async function sendSMS(phone: string, text: string) {
-  const sid = process.env.TWILIO_SID;
-  const token = process.env.TWILIO_TOKEN;
-  const from = process.env.TWILIO_FROM;
-
-  if (!sid || !token || !from) {
-    const error = new Error('Twilio is not configured. Set TWILIO_SID, TWILIO_TOKEN, and TWILIO_FROM.');
-    console.error('[auth/otp] sendSMS configuration error:', error.message);
-    throw error;
-  }
-
-  try {
-    const client = twilio(sid, token);
-    await client.messages.create({ body: text, from, to: phone });
-  } catch (error: any) {
-    console.error('[auth/otp] sendSMS error:', error?.message || error);
-    throw new Error('Failed to deliver OTP SMS.');
   }
 }
 
@@ -88,27 +67,20 @@ export async function POST(request: NextRequest) {
       await user.save();
 
       const message = `Your Zenzi login code is ${code}. It expires in 5 minutes.`;
-      const deliveryPromises: Promise<void>[] = [];
+      const deliveryEmail = (email && email.includes('@') ? email : user.email || '').trim().toLowerCase();
 
-      if (email && user.email) {
-        deliveryPromises.push(sendEmail(user.email, 'Zenzi Consultancy login code', message));
-      }
-      if (phone && user.phone) {
-        deliveryPromises.push(sendSMS(user.phone, message));
-      }
-
-      if (deliveryPromises.length === 0) {
-        return NextResponse.json({ success: false, error: 'Unable to send OTP. No valid delivery target found.' }, { status: 400 });
+      if (!deliveryEmail) {
+        return NextResponse.json({ success: false, error: 'No email address available for OTP delivery.' }, { status: 400 });
       }
 
       try {
-        await Promise.all(deliveryPromises);
+        await sendEmail(deliveryEmail, 'Zenzi Consultancy login code', message);
       } catch (error: any) {
         console.error('[auth/otp] OTP delivery failure:', error?.message || error);
         return NextResponse.json({ success: false, error: error?.message || 'Failed to deliver OTP.' }, { status: 500 });
       }
 
-      return NextResponse.json({ success: true, message: 'OTP sent to your email or phone.' });
+      return NextResponse.json({ success: true, message: 'OTP sent to your email.' });
     }
 
     if (action === 'verify') {
