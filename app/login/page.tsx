@@ -106,10 +106,16 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      const isEmail = otpContact.includes('@');
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'request', email: otpContact, phone: otpContact, role }),
+        body: JSON.stringify({
+          action: 'request',
+          email: isEmail ? otpContact : "",
+          phone: isEmail ? "" : otpContact,
+          role,
+        }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
@@ -129,10 +135,18 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
+      const isEmail = otpContact.includes("@");
+
       const response = await fetch('/api/auth/otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', email: otpContact, phone: otpContact, role, otp: otpCode }),
+        body: JSON.stringify({
+          action: 'verify',
+          email: isEmail ? otpContact : "",
+          phone: isEmail ? "" : otpContact,
+          role,
+          otp: otpCode,
+        }),
       });
       const data = await response.json();
       if (!response.ok || !data.success) {
