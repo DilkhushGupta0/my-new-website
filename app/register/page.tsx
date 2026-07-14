@@ -47,14 +47,6 @@ export default function RegisterPage() {
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Registration failed.");
       }
-
-      if (data.data?.status === 'pending') {
-        setMessage('Your HR account has been created and is pending admin approval. You will be notified when approved.');
-        setStep(0);
-        setLoading(false);
-        return;
-      }
-
       setMessage('A verification code has been sent to your email or phone. Enter it below to activate your account.');
       setStep(1);
       setLoading(false);
